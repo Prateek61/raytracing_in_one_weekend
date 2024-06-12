@@ -1,13 +1,39 @@
 #pragma once
 
+#include "interval.h"
 #include "rtweekend.h"
 
 using color = vec3;
 
 void write_color(std::ostream& out, const color pixel_color)
 {
-    // Write the translated [0,255] value of each color component
-    out << static_cast<int>(255.999 * pixel_color.x()) << ' '
-        << static_cast<int>(255.999 * pixel_color.y()) << ' '
-        << static_cast<int>(255.999 * pixel_color.z()) << '\n';
+    auto r = pixel_color.x();
+    auto g = pixel_color.y();
+    auto b = pixel_color.z();
+
+    // Translate the [0,1] component values to the byte range [0,255].
+    static const interval intensity(0.000, 0.999);
+    int rbyte = int(256 * intensity.clamp(r));
+    int gbyte = int(256 * intensity.clamp(g));
+    int bbyte = int(256 * intensity.clamp(b));
+
+    // Write out the pixel color components.
+    out << rbyte << ' ' << gbyte << ' ' << bbyte << '\n';
+}
+
+void write_color(std::ostream& out, const color pixel_color, int samples_per_pixel)
+{
+    auto scale = 1.0 / samples_per_pixel;
+    auto r = pixel_color.x() * scale;
+    auto g = pixel_color.y() * scale;
+    auto b = pixel_color.z() * scale;
+
+    // Translate the [0,1] component values to the byte range [0,255].
+    static const interval intensity(0.000, 0.999);
+    int rbyte = int(256 * intensity.clamp(r));
+    int gbyte = int(256 * intensity.clamp(g));
+    int bbyte = int(256 * intensity.clamp(b));
+
+    // Write out the pixel color components.
+    out << rbyte << ' ' << gbyte << ' ' << bbyte << '\n';
 }
