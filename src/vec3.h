@@ -1,9 +1,6 @@
 #pragma once
 
-#include <cmath>
-#include <iostream>
-
-using std::sqrt;
+#include "rtweekend.h"
 
 class vec3
 {
