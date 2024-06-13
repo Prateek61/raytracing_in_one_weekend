@@ -4,6 +4,7 @@
 
 #include "hittable.h"
 #include "material.h"
+#include "threadpool.h"
 
 class camera
 {
@@ -14,6 +15,7 @@ public:
     int max_depth = 10; // Maximum number of bounces for a ray
 
     void render(const hittable& world);
+    void render_threaded(const hittable& world);
 private:
     int image_height;   // Rendered image height
     double pixel_sample_scale; // Color scale factor for a sum of pixel samples
@@ -28,13 +30,70 @@ private:
     vec3 sample_square() const;
 };
 
+inline void camera::render_threaded(const hittable& world)
+{
+    initialize();
+    auto& thread_pool = thread_pool::get_instance();
+    unsigned int num_threads = thread_pool.num_threads;
+    int batches_per_thread = image_height / num_threads;
+
+    std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    std::vector <std::vector<color>> colors(image_width, std::vector<color>(image_height));
+
+    for (int t = 0; t < num_threads; t++)
+    {
+        thread_pool.queue_job([this, &world, &colors, t, num_threads, batches_per_thread](){
+            int start = t * batches_per_thread;
+            int end = (t + 1) * batches_per_thread;
+            if (t == num_threads - 1)
+            {
+                end = image_height;
+            }
+
+            for (int j = start; j < end; j++)
+            {
+                std::clog << "\rScanlines remaining: " << (end - j) << ' ' << std::flush;
+                for (int i = 0; i < image_width; i++)
+                {
+                    color pixel_color(0, 0, 0);
+                    for (int sample = 0; sample < samples_per_pixel; sample++)
+                    {
+                        ray r = get_ray(i, j);
+                        pixel_color += ray_color(r, max_depth, world);
+                    }
+
+                    colors[i][j] = pixel_color;
+                }
+            }
+        });
+    }
+
+    while (thread_pool.busy())
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    thread_pool.stop();
+
+    for (int j = 0; j < image_height; j++)
+    {
+        for (int i = 0; i < image_width; i++)
+        {
+            write_color(std::cout, colors[i][j] * pixel_sample_scale);
+        }
+    }
+    std::clog << "\rDone.                 \n";
+}
+
 inline void camera::render(const hittable &world)
 {
     initialize();
 
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
+    std::vector<std::vector<color>> colors(image_width, std::vector<color>(image_height));
+
     for (int j = 0; j < image_height; j++) {
+        
         std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
         for (int i = 0; i < image_width; i++) {
             color pixel_color(0, 0, 0);
@@ -43,6 +102,8 @@ inline void camera::render(const hittable &world)
                 ray r = get_ray(i, j);
                 pixel_color += ray_color(r, max_depth, world);
             }
+
+            colors[i][j] = pixel_color;
             write_color(std::cout, pixel_color * pixel_sample_scale);
         }
     }
