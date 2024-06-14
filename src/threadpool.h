@@ -62,7 +62,7 @@ thread_pool& thread_pool::initialize()
 
     instance_ = new thread_pool();
 
-    const auto thread_count = std::thread::hardware_concurrency() * 4;
+    const auto thread_count = std::thread::hardware_concurrency();
     num_threads = thread_count;
     std::clog << "Creating thread pool with " << thread_count << " threads\n";
     for (size_t i = 0; i < thread_count; i++)
